@@ -15,6 +15,11 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	m_gestureZoomInertionBreak(0)
 {
 	//
+	// Отслеживаем жесты
+	//
+	grabGesture(Qt::PinchGesture);
+
+	//
 	// Всегда показываем полосы прокрутки
 	//
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -87,7 +92,11 @@ void ScalableWrapper::paintEvent(QPaintEvent* _event)
 
 void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 {
-	const int ANGLE_DIVIDER = 120;
+#ifdef Q_OS_MAC
+	const qreal ANGLE_DIVIDER = 2.;
+#else
+	const qreal ANGLE_DIVIDER = 120.;
+#endif
 	const qreal ZOOM_COEFFICIENT_DIVIDER = 10.;
 
 	//
@@ -99,7 +108,7 @@ void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 			// zoomRange > 0 - масштаб увеличивается
 			// zoomRange < 0 - масштаб уменьшается
 			//
-			int zoom = _event->angleDelta().y() / ANGLE_DIVIDER;
+			qreal zoom = _event->angleDelta().y() / ANGLE_DIVIDER;
 			m_zoomRange += zoom / ZOOM_COEFFICIENT_DIVIDER;
 			scaleTextEdit();
 
@@ -110,9 +119,9 @@ void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 	// В противном случае эмулируем прокрутку редактора
 	//
 	else {
-		int scrollDelta = _event->angleDelta().y() / ANGLE_DIVIDER;
 		switch (_event->orientation()) {
 			case Qt::Horizontal: {
+				const int scrollDelta = _event->angleDelta().x() / ANGLE_DIVIDER;
 				horizontalScrollBar()->setValue(
 							horizontalScrollBar()->value()
 							- scrollDelta * horizontalScrollBar()->singleStep());
@@ -120,6 +129,7 @@ void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 			}
 
 			case Qt::Vertical: {
+				const int scrollDelta = _event->angleDelta().y() / ANGLE_DIVIDER;
 				verticalScrollBar()->setValue(
 							verticalScrollBar()->value()
 							- scrollDelta * verticalScrollBar()->singleStep());
@@ -139,11 +149,12 @@ void ScalableWrapper::gestureEvent(QGestureEvent* _event)
 			// пользователю просто невозможно корректно настроить масштаб
 			//
 
+			const int INERTION_BREAK_STOP = 8;
 			qreal zoomDelta = 0;
 			if (pinch->scaleFactor() > 1) {
 				if (m_gestureZoomInertionBreak < 0) {
 					m_gestureZoomInertionBreak = 0;
-				} else if (m_gestureZoomInertionBreak >= 8) {
+				} else if (m_gestureZoomInertionBreak >= INERTION_BREAK_STOP) {
 					m_gestureZoomInertionBreak = 0;
 					zoomDelta = 0.1;
 				} else {
@@ -152,7 +163,7 @@ void ScalableWrapper::gestureEvent(QGestureEvent* _event)
 			} else if (pinch->scaleFactor() < 1) {
 				if (m_gestureZoomInertionBreak > 0) {
 					m_gestureZoomInertionBreak = 0;
-				} else if (m_gestureZoomInertionBreak <= -8) {
+				} else if (m_gestureZoomInertionBreak <= -INERTION_BREAK_STOP) {
 					m_gestureZoomInertionBreak = 0;
 					zoomDelta = -0.1;
 				} else {
@@ -170,7 +181,7 @@ void ScalableWrapper::gestureEvent(QGestureEvent* _event)
 			//
 			if (zoomDelta != 0) {
 				m_zoomRange += zoomDelta;
-				repaint();
+				scaleTextEdit();
 			}
 
 			_event->accept();
