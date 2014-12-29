@@ -28,6 +28,10 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	//
 	// Предварительная настройка редактора текста
 	//
+	// FIXME: непонятно как быть с предком, у встраиваемого виджета не должно быть родителя,
+	//		  но как в таком случае освобождать память?
+	//
+	m_editor->setParent(0);
 	m_editor->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 	m_editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 	m_editor->installEventFilter(this);
