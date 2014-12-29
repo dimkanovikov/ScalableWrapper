@@ -52,6 +52,21 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	setupScrollingSynchronization(true);
 }
 
+QTextEdit* ScalableWrapper::editor() const
+{
+	return m_editor;
+}
+
+void ScalableWrapper::setZoomRange(qreal _zoomRange)
+{
+	if (m_zoomRange != _zoomRange) {
+		m_zoomRange = _zoomRange;
+		emit zoomRangeChanged(m_zoomRange);
+
+		scaleTextEdit();
+	}
+}
+
 bool ScalableWrapper::event(QEvent* _event)
 {
 	bool result = true;
@@ -108,9 +123,8 @@ void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 			// zoomRange > 0 - масштаб увеличивается
 			// zoomRange < 0 - масштаб уменьшается
 			//
-			qreal zoom = _event->angleDelta().y() / ANGLE_DIVIDER;
-			m_zoomRange += zoom / ZOOM_COEFFICIENT_DIVIDER;
-			scaleTextEdit();
+			const qreal zoom = _event->angleDelta().y() / ANGLE_DIVIDER;
+			setZoomRange(m_zoomRange + zoom / ZOOM_COEFFICIENT_DIVIDER);
 
 			_event->accept();
 		}
@@ -180,8 +194,7 @@ void ScalableWrapper::gestureEvent(QGestureEvent* _event)
 			// Если необходимо масштабируем и перерисовываем представление
 			//
 			if (zoomDelta != 0) {
-				m_zoomRange += zoomDelta;
-				scaleTextEdit();
+				setZoomRange(m_zoomRange + zoomDelta);
 			}
 
 			_event->accept();

@@ -17,6 +17,22 @@ class ScalableWrapper : public QGraphicsView
 public:
 	explicit ScalableWrapper(QTextEdit* _editor, QWidget* _parent = 0);
 
+	/**
+	 * @brief Получить редактор, вокруг которого построена обёртка
+	 */
+	QTextEdit* editor() const;
+
+	/**
+	 * @brief Установить коэффициент масштабирование
+	 */
+	void setZoomRange(qreal _zoomRange);
+
+signals:
+	/**
+	 * @brief Изменился коэффициент масштабирования
+	 */
+	void zoomRangeChanged(qreal) const;
+
 protected:
 	/**
 	 * @brief Переопределяем для обработки жестов
