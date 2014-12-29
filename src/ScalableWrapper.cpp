@@ -1,5 +1,6 @@
 #include "ScalableWrapper.h"
 
+#include <QGestureEvent>
 #include <QGraphicsProxyWidget>
 #include <QMenu>
 #include <QScrollBar>
@@ -10,7 +11,8 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	QGraphicsView(_parent),
 	m_scene(new QGraphicsScene),
 	m_editor(_editor),
-	m_zoomRange(1)
+	m_zoomRange(1),
+	m_gestureZoomInertionBreak(0)
 {
 	//
 	// Всегда показываем полосы прокрутки
@@ -43,6 +45,18 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	// Синхронизация значения ролика в обе стороны
 	//
 	setupScrollingSynchronization(true);
+}
+
+bool ScalableWrapper::event(QEvent* _event)
+{
+	bool result = true;
+	if (_event->type() == QEvent::Gesture) {
+		gestureEvent(static_cast<QGestureEvent*>(_event));
+	} else {
+		result = QGraphicsView::event(_event);
+	}
+
+	return result;
 }
 
 void ScalableWrapper::paintEvent(QPaintEvent* _event)
@@ -111,6 +125,55 @@ void ScalableWrapper::wheelEvent(QWheelEvent* _event)
 							- scrollDelta * verticalScrollBar()->singleStep());
 				break;
 			}
+		}
+	}
+}
+
+void ScalableWrapper::gestureEvent(QGestureEvent* _event)
+{
+	if (QGesture* gesture = _event->gesture(Qt::PinchGesture)) {
+		if (QPinchGesture* pinch = qobject_cast<QPinchGesture *>(gesture)) {
+			//
+			// При масштабировании за счёт жестов приходится немного притормаживать
+			// т.к. события приходят слишком часто и при обработке каждого события
+			// пользователю просто невозможно корректно настроить масштаб
+			//
+
+			qreal zoomDelta = 0;
+			if (pinch->scaleFactor() > 1) {
+				if (m_gestureZoomInertionBreak < 0) {
+					m_gestureZoomInertionBreak = 0;
+				} else if (m_gestureZoomInertionBreak >= 8) {
+					m_gestureZoomInertionBreak = 0;
+					zoomDelta = 0.1;
+				} else {
+					++m_gestureZoomInertionBreak;
+				}
+			} else if (pinch->scaleFactor() < 1) {
+				if (m_gestureZoomInertionBreak > 0) {
+					m_gestureZoomInertionBreak = 0;
+				} else if (m_gestureZoomInertionBreak <= -8) {
+					m_gestureZoomInertionBreak = 0;
+					zoomDelta = -0.1;
+				} else {
+					--m_gestureZoomInertionBreak;
+				}
+			} else {
+				//
+				// При обычной прокрутке часто приходит событие с scaledFactor == 1,
+				// так что просто игнорируем их
+				//
+			}
+
+			//
+			// Если необходимо масштабируем и перерисовываем представление
+			//
+			if (zoomDelta != 0) {
+				m_zoomRange += zoomDelta;
+				repaint();
+			}
+
+			_event->accept();
 		}
 	}
 }
