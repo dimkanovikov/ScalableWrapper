@@ -4,6 +4,7 @@
 #include <QGraphicsProxyWidget>
 #include <QMenu>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QTextEdit>
 
 
@@ -54,6 +55,14 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	// Синхронизация значения ролика в обе стороны
 	//
 	setupScrollingSynchronization(true);
+
+	//
+	// Добавляем возможность масштабирования при помощи комбинаций Ctrl +/-
+	//
+	QShortcut* zoomInShortcut = new QShortcut(QKeySequence("Ctrl++"), this);
+	connect(zoomInShortcut, SIGNAL(activated()), this, SLOT(zoomIn()));
+	QShortcut* zoomOutShortcut = new QShortcut(QKeySequence("Ctrl+-"), this);
+	connect(zoomOutShortcut, SIGNAL(activated()), this, SLOT(zoomOut()));
 }
 
 QTextEdit* ScalableWrapper::editor() const
@@ -69,6 +78,16 @@ void ScalableWrapper::setZoomRange(qreal _zoomRange)
 
 		scaleTextEdit();
 	}
+}
+
+void ScalableWrapper::zoomIn()
+{
+	setZoomRange(m_zoomRange + 0.1);
+}
+
+void ScalableWrapper::zoomOut()
+{
+	setZoomRange(m_zoomRange - 0.1);
 }
 
 bool ScalableWrapper::event(QEvent* _event)
