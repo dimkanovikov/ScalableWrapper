@@ -1,5 +1,7 @@
 #include "ScalableWrapper.h"
 
+#include <3rd_party/Widgets/SpellCheckTextEdit/SpellCheckTextEdit.h>
+
 #include <QGestureEvent>
 #include <QGraphicsProxyWidget>
 #include <QMenu>
@@ -33,6 +35,7 @@ ScalableWrapper::ScalableWrapper(QTextEdit* _editor, QWidget* _parent) :
 	//		  но как в таком случае освобождать память?
 	//
 	m_editor->setParent(0);
+	m_editor->setContextMenuPolicy(Qt::PreventContextMenu);
 	m_editor->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 	m_editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
 	m_editor->installEventFilter(this);
@@ -93,9 +96,28 @@ void ScalableWrapper::zoomOut()
 bool ScalableWrapper::event(QEvent* _event)
 {
 	bool result = true;
+	//
+	// Определяем особый обработчик для жестов
+	//
 	if (_event->type() == QEvent::Gesture) {
 		gestureEvent(static_cast<QGestureEvent*>(_event));
-	} else {
+	}
+	//
+	// Для событий showEvent и paintEvent отключаем синхронизацию полос прокрутки,
+	// т.к. в стандартной реализации QGraphicsView они сбиваются для нас
+	//
+	else if (_event->type() == QEvent::Show
+			 || _event->type() == QEvent::Paint) {
+		setupScrollingSynchronization(false);
+
+		result = QGraphicsView::event(_event);
+
+		setupScrollingSynchronization(true);
+	}
+	//
+	// Прочие стандартные обработчики событий
+	//
+	else {
 		result = QGraphicsView::event(_event);
 
 		//
@@ -122,8 +144,8 @@ void ScalableWrapper::paintEvent(QPaintEvent* _event)
 
 	setupScrollingSynchronization(false);
 
-	int verticalValue = verticalScrollBar()->value();
-	int horizontalValue = horizontalScrollBar()->value();
+	int verticalValue = m_editor->verticalScrollBar()->value();
+	int horizontalValue = m_editor->horizontalScrollBar()->value();
 
 	verticalScrollBar()->setValue(0);
 	horizontalScrollBar()->setValue(0);
@@ -236,17 +258,21 @@ void ScalableWrapper::gestureEvent(QGestureEvent* _event)
 bool ScalableWrapper::eventFilter(QObject* _object, QEvent* _event)
 {
 	bool needShowMenu = false;
+	QPoint cursorPos = QCursor::pos();
 	switch (_event->type()) {
-		case QEvent::MouseButtonPress: {
-			QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(_event);
-			if (mouseEvent->button() == Qt::RightButton) {
-				needShowMenu = true;
-			}
+		case QEvent::ContextMenu: {
+			QContextMenuEvent* contextMenuEvent = static_cast<QContextMenuEvent*>(_event);
+			cursorPos = m_editor->viewport()->mapFromGlobal(contextMenuEvent->globalPos());
+			needShowMenu = true;
 			break;
 		}
 
-		case QEvent::ContextMenu: {
-			needShowMenu = true;
+		case QEvent::MouseButtonPress: {
+			QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(_event);
+			if (mouseEvent->button() == Qt::RightButton) {
+				cursorPos = m_editor->viewport()->mapFromGlobal(mouseEvent->globalPos());
+				needShowMenu = true;
+			}
 			break;
 		}
 
